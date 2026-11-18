@@ -232,10 +232,10 @@ for (const t of timestamps) {
     } else if (Math.abs(ndc.x) > 0.85) {
       warnings.push(`t=${t.toFixed(2)}s ${grp.label} near horizontal margin (ndcX=${ndc.x.toFixed(3)})`);
     }
-    if (ndc.y < -0.62 || ndc.y > 0.84) {
-      errors.push(`t=${t.toFixed(2)}s ${grp.label} outside vertical safe bound (ndcY=${ndc.y.toFixed(3)}, allowed=[-0.62..0.84])`);
-    } else if (ndc.y < -0.52 || ndc.y > 0.78) {
-      warnings.push(`t=${t.toFixed(2)}s ${grp.label} near header/caption margin (ndcY=${ndc.y.toFixed(3)})`);
+    if (ndc.y < -0.62 || ndc.y > 0.88) {
+      errors.push(`t=${t.toFixed(2)}s ${grp.label} outside vertical safe bound (ndcY=${ndc.y.toFixed(3)}, allowed=[-0.62..0.88])`);
+    } else if (ndc.y < -0.56 || ndc.y > 0.84) {
+      warnings.push(`t=${t.toFixed(2)}s ${grp.label} near top/subtitle margin (ndcY=${ndc.y.toFixed(3)})`);
     }
   }
 }

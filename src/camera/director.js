@@ -38,16 +38,16 @@ export function createMedDirector(camera, timeline) {
       case 'studio_hero_overview': {
         // Beat 1 (0..5.0s): Full upright 2-way Foley catheter overview
         outPos.set(
-          lerp(-0.20, 0.22, s),
-          lerp(-0.15, -0.35, s),
-          lerp(4.95, 4.72, s)
+          lerp(-0.18, 0.20, s),
+          lerp(-0.12, -0.30, s),
+          lerp(4.68, 4.46, s)
         );
         outLook.set(
           lerp(-0.02, 0.02, s),
-          lerp(-0.34, -0.42, s),
+          lerp(-0.28, -0.36, s),
           0.12
         );
-        outScalars.fov = lerp(44.0, 43.0, s);
+        outScalars.fov = lerp(43.5, 42.5, s);
         break;
       }
 
@@ -68,70 +68,70 @@ export function createMedDirector(camera, timeline) {
       }
 
       case 'anatomical_insertion_glide': {
-        // Beat 3 (10.2..15.2s): Translucent pelvic bladder + urethral insertion glide (dome below header)
+        // Beat 3 (10.2..15.2s): Larger clean anatomical insertion glide in unobstructed vertical space
         const glide = easeOutCubic(u);
         outPos.set(
           lerp(-0.14, 0.14, s),
-          lerp(0.32, 0.38, glide),
-          lerp(5.10, 4.92, s)
+          lerp(0.24, 0.32, glide),
+          lerp(4.62, 4.44, s)
         );
         outLook.set(
           0.0,
-          lerp(0.36, 0.42, glide),
+          lerp(0.28, 0.36, glide),
           0.08
         );
-        outScalars.fov = lerp(44.0, 43.5, s);
+        outScalars.fov = lerp(43.5, 43.0, s);
         break;
       }
 
       case 'balloon_inflation_lock': {
-        // Beat 4 (15.2..20.8s): Full bladder dome (y=1.76) -> urethra -> Y-hub & syringe framed between header & captions
+        // Beat 4 (15.2..20.8s): Centered full anatomy + syringe comfortably inside clean canvas
         outPos.set(
-          lerp(0.28, 0.22, s),
-          lerp(0.05, -0.02, s),
-          lerp(6.24, 6.06, s)
+          lerp(0.26, 0.20, s),
+          lerp(-0.04, -0.10, s),
+          lerp(5.76, 5.56, s)
         );
         outLook.set(
           lerp(0.10, 0.12, s),
-          lerp(-0.04, -0.08, s),
+          lerp(-0.12, -0.16, s),
           0.10
         );
-        outScalars.fov = lerp(45.0, 44.5, s);
+        outScalars.fov = lerp(44.5, 44.0, s);
         break;
       }
 
       case 'gravity_drainage_flow': {
-        // Beat 5 (20.8..26.2s): Bladder dome cleanly below header AND graduated bag bottom cleanly above captions
+        // Beat 5 (20.8..26.2s): Closer full vertical system keeping bag cleanly above lower subtitles
         outPos.set(
-          lerp(0.20, 0.14, s),
-          lerp(-0.78, -0.84, s),
-          lerp(8.98, 8.82, s)
+          lerp(0.18, 0.14, s),
+          lerp(-0.80, -0.84, s),
+          lerp(8.42, 8.22, s)
         );
         outLook.set(
           -0.08,
           lerp(-0.84, -0.88, s),
           0.10
         );
-        outScalars.fov = 46.5;
+        outScalars.fov = 46.0;
         break;
       }
 
       case 'deflation_removal_summary':
       default: {
-        // Beat 6 (26.2..30.0s): Safe deflation then smooth withdrawal keeping bladder dome below header & valve above captions
+        // Beat 6 (26.2..30.0s): Safe deflation then withdrawal framed clearly above lower subtitles
         const withdrawEase = clamp01((t - 27.85) / 1.95);
         const w = withdrawEase * withdrawEase * (3 - 2 * withdrawEase);
         outPos.set(
-          lerp(-0.22, -0.14, s),
-          lerp(-0.04, -0.46, w),
-          lerp(6.28, 8.15, w)
+          lerp(-0.20, -0.14, s),
+          lerp(-0.10, -0.46, w),
+          lerp(5.84, 7.62, w)
         );
         outLook.set(
           0.0,
-          lerp(-0.08, -0.50, w),
+          lerp(-0.14, -0.50, w),
           0.10
         );
-        outScalars.fov = lerp(45.0, 46.0, w);
+        outScalars.fov = lerp(44.5, 45.5, w);
         break;
       }
     }

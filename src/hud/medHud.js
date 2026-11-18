@@ -187,9 +187,6 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
   }
   const ctx = canvas ? canvas.getContext('2d', { alpha: true }) : null;
 
-  const titleText = timeline?.title || 'HOW A FOLEY CATHETER WORKS';
-  const categoryBadge = timeline?.categoryBadge || 'CLINICAL ANATOMY • 2-WAY FOLEY';
-
   const rawLines = Array.isArray(manifest?.lines) && manifest.lines.length > 0
     ? manifest.lines
     : (timeline?.dialogue || []).map((d) => ({
@@ -197,17 +194,17 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
         words: buildFallbackWords(d.text, d.start, d.end),
       }));
 
-  const subtitlePages = rawLines.map((line) => ({
-    id: line.id,
-    beatId: line.beatId,
-    speaker: line.speaker || 'narrator',
-    start: line.start,
-    end: line.end,
-    text: line.text,
-    words: Array.isArray(line.words) && line.words.length > 0
-      ? line.words
-      : buildFallbackWords(line.text, line.start, line.end),
-  }));
+  const CLAUSE_BREAK_WORDS = new Set([
+    'for',
+    'until',
+    'into',
+    'through',
+    'without',
+    'while',
+    'when',
+    'because',
+    'collapses',
+  ]);
 
   function buildFallbackWords(text, start, end) {
     const raw = String(text || '').trim().split(/\s+/).filter(Boolean);
@@ -232,6 +229,91 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
     }));
   }
 
+  function joinWordsCharLen(slice) {
+    let s = '';
+    for (let i = 0; i < slice.length; i++) {
+      const w = slice[i].word || '';
+      if (i > 0 && !(slice[i - 1].word || '').endsWith('—')) s += ' ';
+      s += w;
+    }
+    return s.length;
+  }
+
+  function splitLineIntoCards(line) {
+    const words = Array.isArray(line.words) && line.words.length > 0
+      ? line.words
+      : buildFallbackWords(line.text, line.start, line.end);
+
+    if (words.length <= 7 && joinWordsCharLen(words) <= 44) {
+      return [
+        {
+          id: `${line.id}_0`,
+          beatId: line.beatId,
+          start: words[0]?.start ?? line.start,
+          end: words[words.length - 1]?.end ?? line.end,
+          words,
+        },
+      ];
+    }
+
+    const cards = [];
+    let idx = 0;
+    while (idx < words.length) {
+      const remaining = words.length - idx;
+      if (remaining <= 7 && joinWordsCharLen(words.slice(idx)) <= 44) {
+        cards.push(words.slice(idx));
+        break;
+      }
+
+      let bestSplit = Math.min(words.length, idx + 5);
+      let bestScore = -1e9;
+      const minK = Math.min(words.length, idx + 2);
+      const maxK = Math.min(words.length, idx + 7);
+
+      for (let k = minK; k <= maxK; k++) {
+        const chunk = words.slice(idx, k);
+        const charLen = joinWordsCharLen(chunk);
+        const remCount = words.length - k;
+
+        if (charLen > 45 && k > idx + 2) continue;
+        if ((words[k - 1]?.word || '').endsWith('—')) continue;
+        // Avoid tiny 1-word orphan tail unless unavoidable
+        if (remCount === 1) continue;
+
+        let score = 0;
+        const prevWord = (words[k - 1]?.word || '');
+        const nextWordLower = (words[k]?.word || '').toLowerCase().replace(/[^a-z]/g, '');
+
+        if (/[,.;:!?]$/.test(prevWord)) score += 60;
+        if (CLAUSE_BREAK_WORDS.has(nextWordLower)) score += 45;
+        if (k - idx >= 4 && k - idx <= 6) score += 16;
+        if (remCount >= 3 && remCount <= 7 && joinWordsCharLen(words.slice(k)) <= 44) {
+          score += 24;
+        }
+        // Favor ~28..38 chars per card
+        score -= Math.abs(charLen - 33) * 0.7;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestSplit = k;
+        }
+      }
+
+      cards.push(words.slice(idx, bestSplit));
+      idx = bestSplit;
+    }
+
+    return cards.map((chunk, cIdx) => ({
+      id: `${line.id}_${cIdx}`,
+      beatId: line.beatId,
+      start: chunk[0]?.start ?? line.start,
+      end: chunk[chunk.length - 1]?.end ?? line.end,
+      words: chunk,
+    }));
+  }
+
+  const subtitlePages = rawLines.flatMap((line) => splitLineIntoCards(line));
+
   function getActiveBeat(t) {
     for (let i = 0; i < beats.length; i++) {
       const b = beats[i];
@@ -241,71 +323,24 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
   }
 
   function getActiveSubtitlePage(t) {
-    // Active narration line with tiny gentle pre-roll/hold
     for (let i = 0; i < subtitlePages.length; i++) {
       const p = subtitlePages[i];
-      if (t >= p.start - 0.12 && t <= p.end + 0.14) {
+      const nextStart = i + 1 < subtitlePages.length ? subtitlePages[i + 1].start : duration + 1.0;
+      const winStart = p.start - 0.06;
+      const winEnd = Math.min(nextStart - 0.04, p.end + 0.24);
+      if (t >= winStart && t <= winEnd) {
         return p;
       }
     }
-    // Fallback to beat-linked narration line during micro-gaps between beats
-    const beat = getActiveBeat(t);
-    for (let i = 0; i < subtitlePages.length; i++) {
-      if (subtitlePages[i].beatId === beat.id) return subtitlePages[i];
-    }
-    return subtitlePages[0] || null;
+    return null;
   }
 
-  function resolveTelemetry(t, telemetry = {}) {
-    let fallbackBalloon = 0.0;
-    if (t >= 15.6 && t < 19.6) {
-      fallbackBalloon = 10.0 * smoothstep(15.6, 19.4, t);
-    } else if (t >= 19.6 && t < 26.3) {
-      fallbackBalloon = 10.0;
-    } else if (t >= 26.3 && t < 28.2) {
-      fallbackBalloon = 10.0 * (1.0 - smoothstep(26.3, 28.0, t));
-    }
-
-    let fallbackBag = 0.0;
-    if (t >= 21.0 && t < 26.0) {
-      fallbackBag = 250.0 * smoothstep(21.0, 25.8, t);
-    } else if (t >= 26.0) {
-      fallbackBag = 250.0;
-    }
-
-    let fallbackState = 'READY';
-    if (t < 5.0) fallbackState = 'OVERVIEW';
-    else if (t < 10.2) fallbackState = 'DUAL LUMEN';
-    else if (t < 15.2) fallbackState = t < 14.2 ? 'INSERTING' : 'SEATED';
-    else if (t < 20.8) fallbackState = t < 18.8 ? 'INFLATING' : 'ANCHORED';
-    else if (t < 26.2) fallbackState = 'DRAINING';
-    else fallbackState = t < 28.0 ? 'DEFLATING' : 'REMOVED';
-
-    const balloonMl = Number.isFinite(telemetry.balloonMl)
-      ? telemetry.balloonMl
-      : Number.isFinite(telemetry.balloonVolumeMl)
-        ? telemetry.balloonVolumeMl
-        : fallbackBalloon;
-
-    const bagMl = Number.isFinite(telemetry.drainageMl)
-      ? telemetry.drainageMl
-      : Number.isFinite(telemetry.bagMl)
-        ? telemetry.bagMl
-        : Number.isFinite(telemetry.bagVolumeMl)
-          ? telemetry.bagVolumeMl
-          : fallbackBag;
-
-    const state = String(telemetry.state || telemetry.status || fallbackState).toUpperCase();
-
-    return {
-      balloonMl: clamp(balloonMl, 0, 10.0),
-      bagMl: clamp(bagMl, 0, 250.0),
-      state,
-    };
-  }
-
-  // Pre-baked subtle vignette layer (1080x1920)
+  // Pre-baked subtle cinematic vignette layer (1080x1920)
   let vigCanvas = null;
+  let subCanvas = null;
+  let subCtx = null;
+  const SUB_CANVAS_H = 260;
+  const SUB_CANVAS_TOP = 1520;
   if (typeof document !== 'undefined') {
     vigCanvas = document.createElement('canvas');
     vigCanvas.width = width;
@@ -313,28 +348,24 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
     const vctx = vigCanvas.getContext('2d');
     const vig = vctx.createRadialGradient(
       width * 0.5,
-      height * 0.46,
-      height * 0.28,
+      height * 0.45,
+      height * 0.30,
       width * 0.5,
       height * 0.5,
-      height * 0.72
+      height * 0.74
     );
     vig.addColorStop(0.0, 'rgba(0, 0, 0, 0)');
-    vig.addColorStop(0.74, 'rgba(4, 11, 22, 0.12)');
-    vig.addColorStop(1.0, 'rgba(2, 7, 16, 0.42)');
+    vig.addColorStop(0.74, 'rgba(4, 11, 22, 0.10)');
+    vig.addColorStop(1.0, 'rgba(2, 7, 16, 0.38)');
     vctx.fillStyle = vig;
     vctx.fillRect(0, 0, width, height);
-  }
 
-  const progGrad = ctx
-    ? (() => {
-        const g = ctx.createLinearGradient(0, 0, width, 0);
-        g.addColorStop(0.0, '#38BDF8');
-        g.addColorStop(0.55, '#2DD4BF');
-        g.addColorStop(1.0, '#7DD3FC');
-        return g;
-      })()
-    : null;
+    // Offscreen subtitle scratch buffer prevents stroke/fill alpha-bleed during fades
+    subCanvas = document.createElement('canvas');
+    subCanvas.width = width;
+    subCanvas.height = SUB_CANVAS_H;
+    subCtx = subCanvas.getContext('2d', { alpha: true });
+  }
 
   function pickAnchor(screenAnchors, candidateKeys) {
     if (!screenAnchors) return null;
@@ -347,195 +378,76 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
     return null;
   }
 
+  function measureSlicePx(c, slice, spacePx) {
+    let w = 0;
+    for (let i = 0; i < slice.length; i++) {
+      if (i > 0 && !(slice[i - 1].word || '').endsWith('—')) w += spacePx;
+      w += c.measureText(slice[i].word).width;
+    }
+    return w;
+  }
+
+  function annotateNoSpace(slice) {
+    return slice.map((w, i) => ({
+      ...w,
+      noSpaceBefore: i > 0 && (slice[i - 1].word || '').endsWith('—'),
+    }));
+  }
+
   function wrapSubtitleLines(c, words, maxWidthPx) {
-    const sizes = [36, 34, 32, 30, 28, 26];
+    const sizes = [42, 40, 38, 36];
     for (const fontSize of sizes) {
-      c.font = `700 ${fontSize}px "DejaVu Sans", sans-serif`;
-      const spacePx = c.measureText(' ').width * 1.1;
-      const lines = [];
-      let current = [];
-      let currentPx = 0;
+      c.font = `800 ${fontSize}px "DejaVu Sans", sans-serif`;
+      const spacePx = c.measureText(' ').width * 1.08;
+      const singlePx = measureSlicePx(c, words, spacePx);
+      if (singlePx <= maxWidthPx) {
+        return { fontSize, lines: [annotateNoSpace(words)] };
+      }
 
-      for (let i = 0; i < words.length; i++) {
-        const w = words[i];
-        const noSpaceBefore = i > 0 && words[i - 1].word.endsWith('—');
-        const wPx = c.measureText(w.word).width;
-        const addPx = (current.length > 0 && !noSpaceBefore ? spacePx : 0) + wPx;
+      // Balanced 2-line split avoiding 1-word tails
+      let bestK = -1;
+      let bestCost = 1e9;
+      for (let k = 1; k < words.length; k++) {
+        if ((words[k - 1].word || '').endsWith('—')) continue;
+        const left = words.slice(0, k);
+        const right = words.slice(k);
+        if (words.length >= 4 && (left.length < 2 || right.length < 2)) continue;
 
-        if (current.length > 0 && currentPx + addPx > maxWidthPx && !noSpaceBefore) {
-          lines.push(current);
-          current = [w];
-          currentPx = wPx;
-        } else {
-          current.push({ ...w, noSpaceBefore });
-          currentPx += addPx;
+        const w1 = measureSlicePx(c, left, spacePx);
+        const w2 = measureSlicePx(c, right, spacePx);
+        if (w1 > maxWidthPx || w2 > maxWidthPx) continue;
+
+        let cost = Math.abs(w1 - w2);
+        const lastLeftLower = (left[left.length - 1].word || '').toLowerCase();
+        const firstRightLower = (right[0].word || '').toLowerCase().replace(/[^a-z]/g, '');
+        if (/^(a|an|the|is|are|of|in|at|to|for)$/.test(lastLeftLower)) cost += 90;
+        if (CLAUSE_BREAK_WORDS.has(firstRightLower) || /[,.;:!?]$/.test(left[left.length - 1].word || '')) {
+          cost -= 110;
+        }
+        if (cost < bestCost) {
+          bestCost = cost;
+          bestK = k;
         }
       }
-      if (current.length > 0) lines.push(current);
-      if (lines.length <= 2 || fontSize === sizes[sizes.length - 1]) {
-        return { fontSize, lines: lines.slice(0, 2) };
-      }
-    }
-    return { fontSize: 34, lines: [] };
-  }
 
-  function drawTopTelemetryHeader(t, beat, tele) {
-    const hx = 40;
-    const hy = 44;
-    const hw = 1000;
-    const hh = 166;
-
-    // Top 5px clinical progress bar
-    const prog = clamp01(t / duration);
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.14)';
-    ctx.fillRect(0, 0, width, 5);
-    ctx.fillStyle = progGrad || '#38BDF8';
-    ctx.fillRect(0, 0, width * prog, 5);
-
-    ctx.save();
-    // Frosted dark medical slate panel
-    drawRoundedRect(ctx, hx, hy, hw, hh, 16);
-    const panelGrad = ctx.createLinearGradient(hx, hy, hx, hy + hh);
-    panelGrad.addColorStop(0.0, 'rgba(6, 17, 34, 0.88)');
-    panelGrad.addColorStop(1.0, 'rgba(9, 24, 46, 0.82)');
-    ctx.fillStyle = panelGrad;
-    ctx.fill();
-
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.48)';
-    ctx.stroke();
-
-    // Subtle top specular hairline
-    ctx.beginPath();
-    ctx.moveTo(hx + 20, hy + 1.5);
-    ctx.lineTo(hx + hw - 20, hy + 1.5);
-    ctx.strokeStyle = 'rgba(186, 230, 253, 0.24)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Row 1: Chapter Index Pill (left) & Category + Timecode (right)
-    const chapText = (beat?.chapter || '01 • DEVICE OVERVIEW').toUpperCase();
-    ctx.font = '700 20px "DejaVu Sans", sans-serif';
-    const chapTextW = ctx.measureText(chapText).width;
-    const chapPillW = Math.min(540, chapTextW + 46);
-    const chapX = hx + 22;
-    const chapY = hy + 16;
-
-    drawRoundedRect(ctx, chapX, chapY, chapPillW, 32, 8);
-    ctx.fillStyle = 'rgba(14, 116, 144, 0.34)';
-    ctx.fill();
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.50)';
-    ctx.stroke();
-
-    // Pulsing cyan telemetry dot
-    const dotPulse = 0.7 + 0.3 * Math.sin(t * 4.5);
-    ctx.beginPath();
-    ctx.arc(chapX + 16, chapY + 16, 4.5, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(45, 212, 191, ${dotPulse.toFixed(2)})`;
-    ctx.fill();
-
-    ctx.fillStyle = '#7DD3FC';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(chapText, chapX + 30, chapY + 17);
-
-    // Right side category + elapsed timer
-    const secStr = `${String(Math.floor(t)).padStart(2, '0')}s / ${Math.round(duration)}s`;
-    ctx.font = '600 18px "DejaVu Sans", sans-serif';
-    ctx.fillStyle = '#94A3B8';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${categoryBadge}   |   ${secStr}`, hx + hw - 24, chapY + 17);
-
-    // Row 2: Authoritative Title
-    ctx.font = '800 33px "DejaVu Sans", sans-serif';
-    ctx.fillStyle = '#F8FAFC';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(titleText, hx + 24, hy + 78);
-
-    // Subtle divider hairline
-    ctx.beginPath();
-    ctx.moveTo(hx + 22, hy + 106);
-    ctx.lineTo(hx + hw - 22, hy + 106);
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.18)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Row 3: 3 Live Device Telemetry Pills
-    const pillY = hy + 118;
-    const pillH = 34;
-    const innerX = hx + 22;
-    const gap = 14;
-    const pillW = (hw - 44 - gap * 2) / 3;
-
-    // Pill 1: BALLOON VOLUME
-    drawTelemetryPill(ctx, innerX, pillY, pillW, pillH, {
-      label: 'BALLOON:',
-      value: `${tele.balloonMl.toFixed(1)} mL`,
-      progress: tele.balloonMl / 10.0,
-      accent: tele.balloonMl > 0.2 ? '#38BDF8' : '#64748B',
-    });
-
-    // Pill 2: BAG VOLUME
-    drawTelemetryPill(ctx, innerX + pillW + gap, pillY, pillW, pillH, {
-      label: 'BAG VOL:',
-      value: `${Math.round(tele.bagMl)} mL`,
-      progress: tele.bagMl / 250.0,
-      accent: tele.bagMl > 1.0 ? '#F59E0B' : '#64748B',
-    });
-
-    // Pill 3: VALVE / DEVICE STATE
-    const stateAccent =
-      tele.state === 'DRAINING' ? '#F59E0B'
-        : tele.state === 'ANCHORED' || tele.state === 'SEATED' ? '#2DD4BF'
-          : '#38BDF8';
-    drawTelemetryPill(ctx, innerX + (pillW + gap) * 2, pillY, pillW, pillH, {
-      label: 'STATE:',
-      value: tele.state,
-      dotColor: stateAccent,
-      accent: stateAccent,
-    });
-
-    ctx.restore();
-  }
-
-  function drawTelemetryPill(c, x, y, w, h, cfg) {
-    drawRoundedRect(c, x, y, w, h, 8);
-    c.fillStyle = 'rgba(15, 29, 52, 0.85)';
-    c.fill();
-    c.lineWidth = 1;
-    c.strokeStyle = 'rgba(148, 163, 184, 0.25)';
-    c.stroke();
-
-    if (typeof cfg.progress === 'number') {
-      const barW = Math.max(0, (w - 8) * clamp01(cfg.progress));
-      if (barW > 1) {
-        drawRoundedRect(c, x + 4, y + h - 5, barW, 2.5, 1.2);
-        c.fillStyle = cfg.accent;
-        c.fill();
+      if (bestK > 0) {
+        return {
+          fontSize,
+          lines: [
+            annotateNoSpace(words.slice(0, bestK)),
+            annotateNoSpace(words.slice(bestK)),
+          ],
+        };
       }
     }
 
-    let textStartX = x + 14;
-    if (cfg.dotColor) {
-      c.beginPath();
-      c.arc(x + 16, y + h * 0.5, 4, 0, Math.PI * 2);
-      c.fillStyle = cfg.dotColor;
-      c.fill();
-      textStartX = x + 28;
-    }
-
-    c.font = '700 18px "DejaVu Sans", sans-serif';
-    c.fillStyle = '#94A3B8';
-    c.textAlign = 'left';
-    c.textBaseline = 'middle';
-    c.fillText(cfg.label, textStartX, y + h * 0.5 - 0.5);
-
-    c.font = '800 19px "DejaVu Sans", sans-serif';
-    c.fillStyle = '#F8FAFC';
-    c.textAlign = 'right';
-    c.fillText(cfg.value, x + w - 14, y + h * 0.5 - 0.5);
+    // Fallback last-resort balanced midpoint at 36px
+    c.font = '800 36px "DejaVu Sans", sans-serif';
+    const mid = Math.max(1, Math.ceil(words.length / 2));
+    return {
+      fontSize: 36,
+      lines: [annotateNoSpace(words.slice(0, mid)), annotateNoSpace(words.slice(mid))].filter((l) => l.length > 0),
+    };
   }
 
   function drawVectorCallouts(t, beat, screenAnchors) {
@@ -554,7 +466,7 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
       if (!anchor) continue;
       const ax = anchor.x;
       const ay = anchor.y;
-      if (ax < 30 || ax > width - 30 || ay < 230 || ay > 1470) continue;
+      if (ax < 30 || ax > width - 30 || ay < 70 || ay > 1495) continue;
 
       const fadeIn = clamp01((beatElapsed - (def.delay || 0)) / 0.28);
       const alpha = fadeIn * beatFadeOut;
@@ -571,7 +483,6 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
       let pillX;
       if (side === 'left') {
         pillX = clamp(Math.min(ax - 68 - pillW, 415 - pillW), 44, width - 44 - pillW);
-        // Ensure pill doesn't swallow anchor
         if (pillX + pillW > ax - 24) {
           pillX = clamp(ax - 32 - pillW, 44, width - 44 - pillW);
         }
@@ -582,7 +493,7 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
         }
       }
 
-      const pillY = clamp(ay + (def.yOffset || 0) - pillH * 0.5, 260, 1430 - pillH);
+      const pillY = clamp(ay + (def.yOffset || 0) - pillH * 0.5, 95, 1455 - pillH);
 
       prepared.push({
         def,
@@ -597,18 +508,18 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
       });
     }
 
-    // Resolve vertical overlaps cleanly per side inside [260 .. 1430 - pillH]
+    // Resolve vertical overlaps cleanly per side inside [95 .. 1455 - pillH]
     for (const side of ['left', 'right']) {
       const group = prepared.filter((p) => p.side === side).sort((a, b) => a.pillY - b.pillY);
       const minGap = 58;
       for (let i = 1; i < group.length; i++) {
         if (group[i].pillY - group[i - 1].pillY < minGap) {
-          group[i].pillY = Math.min(1430 - group[i].pillH, group[i - 1].pillY + minGap);
+          group[i].pillY = Math.min(1455 - group[i].pillH, group[i - 1].pillY + minGap);
         }
       }
       for (let i = group.length - 2; i >= 0; i--) {
         if (group[i + 1].pillY - group[i].pillY < minGap) {
-          group[i].pillY = Math.max(260, group[i + 1].pillY - minGap);
+          group[i].pillY = Math.max(95, group[i + 1].pillY - minGap);
         }
       }
     }
@@ -671,7 +582,7 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
       ctx.strokeStyle = accent;
       ctx.stroke();
 
-      // Accent dot inside pill (always near text start)
+      // Accent dot inside pill
       ctx.beginPath();
       ctx.arc(pillX + 18, badgeMidY, 4.2, 0, Math.PI * 2);
       ctx.fillStyle = accent;
@@ -687,95 +598,102 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
     }
   }
 
-  function drawLowerThirdCaption(t, page) {
-    if (!page) return;
-    const cx = 56;
-    const cy = 1525;
-    const cw = 968;
-    const ch = 230;
+  function drawYoutubeSubtitles(t, page) {
+    if (!page || !page.words || page.words.length === 0) return;
 
-    ctx.save();
-    drawRoundedRect(ctx, cx, cy, cw, ch, 14);
-    const cardGrad = ctx.createLinearGradient(cx, cy, cx, cy + ch);
-    cardGrad.addColorStop(0.0, 'rgba(5, 14, 28, 0.88)');
-    cardGrad.addColorStop(1.0, 'rgba(4, 11, 22, 0.92)');
-    ctx.fillStyle = cardGrad;
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-    ctx.stroke();
+    const fadeIn = clamp01((t - (page.start - 0.06)) / 0.08);
+    const fadeOut = t > page.end + 0.06 ? clamp01(1.0 - (t - (page.end + 0.06)) / 0.12) : 1.0;
+    const alpha = fadeIn * fadeOut;
+    if (alpha <= 0.02) return;
 
-    // Left sleek cyan clinical bar
-    drawRoundedRect(ctx, cx + 14, cy + 20, 5, ch - 40, 2.5);
-    ctx.fillStyle = '#38BDF8';
-    ctx.fill();
-
-    // Header tag: CLINICAL NARRATION
-    ctx.font = '700 18px "DejaVu Sans", sans-serif';
-    ctx.fillStyle = '#38BDF8';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('CLINICAL NARRATION', cx + 36, cy + 38);
-
-    // Subtle speaking waveform indicator on top-right of card
-    const isSpeaking = t >= page.start && t <= page.end;
-    for (let b = 0; b < 4; b++) {
-      const hFrac = isSpeaking ? 0.35 + 0.65 * Math.abs(Math.sin(t * 8.5 + b * 1.1)) : 0.25;
-      const bh = 16 * hFrac;
-      ctx.fillStyle = isSpeaking ? 'rgba(56, 189, 248, 0.78)' : 'rgba(148, 163, 184, 0.30)';
-      drawRoundedRect(ctx, cx + cw - 54 + b * 8, cy + 38 - bh * 0.5, 4, bh, 2);
-      ctx.fill();
+    const targetCtx = subCtx || ctx;
+    const localOffsetY = subCtx ? SUB_CANVAS_TOP : 0;
+    if (subCtx) {
+      subCtx.clearRect(0, 0, width, SUB_CANVAS_H);
     }
 
-    // Wrapped 2-line clinical caption with subtle calm sky-cyan active word highlight
-    const { fontSize, lines } = wrapSubtitleLines(ctx, page.words, cw - 76);
-    const lineH = fontSize * 1.42;
-    const textStartY = lines.length === 1 ? cy + 132 : cy + 106;
+    const { fontSize, lines } = wrapSubtitleLines(targetCtx, page.words, 900);
+    if (lines.length === 0) return;
 
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
+    const lineH = fontSize * 1.32;
+    const centerAnchorY = 1650 - localOffsetY;
+    const startY = lines.length === 1 ? centerAnchorY : centerAnchorY - lineH * 0.45;
+
+    targetCtx.save();
+    targetCtx.globalAlpha = subCtx ? 1.0 : alpha;
+    targetCtx.font = `800 ${fontSize}px "DejaVu Sans", sans-serif`;
+    const spacePx = targetCtx.measureText(' ').width * 1.08;
+    targetCtx.textAlign = 'left';
+    targetCtx.textBaseline = 'middle';
+    targetCtx.lineJoin = 'round';
+    targetCtx.miterLimit = 2;
 
     for (let li = 0; li < lines.length; li++) {
       const lineWords = lines[li];
-      const y = textStartY + li * lineH;
-      let x = cx + 36;
+      const y = startY + li * lineH;
 
-      ctx.font = `600 ${fontSize}px "DejaVu Sans", sans-serif`;
-      const spacePx = ctx.measureText(' ').width * 1.1;
+      // Measure total line pixel width for dead-center alignment
+      let totalLineW = 0;
+      const wordWidths = [];
+      for (let wi = 0; wi < lineWords.length; wi++) {
+        const wp = targetCtx.measureText(lineWords[wi].word).width;
+        wordWidths.push(wp);
+        if (wi > 0 && !lineWords[wi].noSpaceBefore) totalLineW += spacePx;
+        totalLineW += wp;
+      }
 
+      let x = (width - totalLineW) * 0.5;
+
+      // Pass 1: Crisp dark outline + subtle soft drop shadow (zero box container)
       for (let wi = 0; wi < lineWords.length; wi++) {
         const w = lineWords[wi];
         if (wi > 0 && !w.noSpaceBefore) x += spacePx;
 
-        const isActive = t >= w.start - 0.02 && t <= w.end + 0.04;
-        const isSpoken = t > w.end + 0.04;
+        targetCtx.save();
+        targetCtx.shadowColor = 'rgba(2, 6, 16, 0.90)';
+        targetCtx.shadowBlur = 14;
+        targetCtx.shadowOffsetY = 3;
+        targetCtx.lineWidth = 10;
+        targetCtx.strokeStyle = 'rgba(3, 8, 18, 0.98)';
+        targetCtx.strokeText(w.word, x, y);
+        targetCtx.restore();
 
-        ctx.save();
-        ctx.font = `${isActive ? 700 : 600} ${fontSize}px "DejaVu Sans", sans-serif`;
-        const wp = ctx.measureText(w.word).width;
+        x += wordWidths[wi];
+      }
 
-        ctx.shadowColor = isActive ? 'rgba(56, 189, 248, 0.38)' : 'rgba(2, 6, 14, 0.75)';
-        ctx.shadowBlur = isActive ? 8 : 3;
-        ctx.shadowOffsetY = isActive ? 0 : 1.5;
+      // Pass 2: Crisp YouTube white fill with subtle sky-cyan emphasis on active spoken word
+      x = (width - totalLineW) * 0.5;
+      for (let wi = 0; wi < lineWords.length; wi++) {
+        const w = lineWords[wi];
+        if (wi > 0 && !w.noSpaceBefore) x += spacePx;
 
+        const isActive = t >= w.start - 0.03 && t <= w.end + 0.04;
+        targetCtx.save();
         if (isActive) {
-          ctx.fillStyle = '#38BDF8';
-        } else if (isSpoken) {
-          ctx.fillStyle = '#E2E8F0';
+          targetCtx.shadowColor = 'rgba(56, 189, 248, 0.50)';
+          targetCtx.shadowBlur = 10;
+          targetCtx.fillStyle = '#38BDF8';
         } else {
-          ctx.fillStyle = '#FFFFFF';
+          targetCtx.fillStyle = '#FFFFFF';
         }
-        ctx.fillText(w.word, x, y);
-        ctx.restore();
+        targetCtx.fillText(w.word, x, y);
+        targetCtx.restore();
 
-        x += wp;
+        x += wordWidths[wi];
       }
     }
 
-    ctx.restore();
+    targetCtx.restore();
+
+    if (subCanvas) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(subCanvas, 0, SUB_CANVAS_TOP);
+      ctx.restore();
+    }
   }
 
-  function draw(t, telemetry = {}, screenAnchors = {}) {
+  function draw(t, _telemetry = {}, screenAnchors = {}) {
     if (!ctx) return;
     ctx.clearRect(0, 0, width, height);
 
@@ -784,11 +702,8 @@ export function createMedHud(timeline, manifest = null, canvas = null) {
     }
 
     const beat = getActiveBeat(t);
-    const tele = resolveTelemetry(t, telemetry);
-
     drawVectorCallouts(t, beat, screenAnchors);
-    drawTopTelemetryHeader(t, beat, tele);
-    drawLowerThirdCaption(t, getActiveSubtitlePage(t));
+    drawYoutubeSubtitles(t, getActiveSubtitlePage(t));
   }
 
   return {
