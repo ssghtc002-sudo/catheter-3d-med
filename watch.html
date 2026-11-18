@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Medical Education: How a Foley Catheter Works</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #0D223D, #040B16 74%);
+      color: #E2F1FF;
+      font-family: "DejaVu Sans", system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      gap: 14px;
+    }
+    h1 { font-size: 1.1rem; margin: 0; letter-spacing: 0.05em; color: #38BDF8; text-align: center; }
+    .player {
+      height: min(82vh, 840px);
+      aspect-ratio: 9 / 16;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1.5px solid rgba(56, 189, 248, 0.42);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.65);
+      background: #000;
+    }
+    video { width: 100%; height: 100%; display: block; object-fit: cover; }
+    a {
+      color: #04101E;
+      background: #38BDF8;
+      padding: 10px 20px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>HOW A FOLEY CATHETER WORKS (30s • 1080×1920 CLINICAL 3D)</h1>
+  <div class="player">
+    <video controls playsinline autoplay loop src="/output/catheter_how_it_works.mp4"></video>
+  </div>
+  <a href="/output/catheter_how_it_works.mp4" download="catheter_how_it_works.mp4">Download MP4</a>
+</body>
+</html>

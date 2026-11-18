@@ -1,0 +1,19 @@
+{
+  "name": "catheter-3d-med",
+  "version": "1.0.0",
+  "description": "How a Medical Catheter Works — 30s 9:16 3D Clinical Education Animation",
+  "main": "src/main.js",
+  "scripts": {
+    "preview": "node render/server.mjs 4177",
+    "verify": "node verify_scene.mjs",
+    "qa": "node render/render_frames.mjs --qa-only",
+    "render": "node render/render_frames.mjs"
+  },
+  "keywords": ["medical", "education", "catheter", "threejs", "3d-animation"],
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "playwright-core": "^1.65.1",
+    "three": "^0.187.0"
+  }
+}

@@ -1,0 +1,8 @@
+node_modules
+node_modules/
+.venv/
+.segments/
+render/qa_frames/
+output/*.mp4
+__pycache__/
+*.pyc

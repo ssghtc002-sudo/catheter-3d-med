@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How a Medical Catheter Works — 3D Clinical Animation</title>
+  <link rel="icon" href="data:," />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/node_modules/three/build/three.module.js",
+        "three/addons/": "/node_modules/three/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #040B16;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage {
+      position: relative;
+      width: 1080px;
+      height: 1920px;
+      max-width: 100vw;
+      max-height: 100vh;
+      aspect-ratio: 9 / 16;
+    }
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="webgl-canvas" width="1080" height="1920"></canvas>
+    <canvas id="hud-canvas" width="1080" height="1920"></canvas>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

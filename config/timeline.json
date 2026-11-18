@@ -1,0 +1,159 @@
+{
+  "title": "HOW A FOLEY CATHETER WORKS",
+  "categoryBadge": "CLINICAL ANATOMY • 2-WAY FOLEY",
+  "duration": 30.0,
+  "fps": 30,
+  "totalFrames": 900,
+  "resolution": {
+    "width": 1080,
+    "height": 1920
+  },
+  "audio": {
+    "sampleRate": 44100,
+    "channels": 2,
+    "masterPath": "audio/output/master_audio.wav",
+    "manifestPath": "audio/output/voice_manifest.json",
+    "srtPath": "output/subtitles.srt",
+    "loudnessLufs": -14.0,
+    "truePeakCeilingDbfs": -1.0
+  },
+  "speakers": {
+    "narrator": {
+      "label": "CLINICAL EDUCATION",
+      "voice": "bm_george",
+      "lang": "en-gb",
+      "speed": 0.98,
+      "color": "#38BDF8",
+      "pan": 0.0
+    }
+  },
+  "worldContract": {
+    "bladderCenter": [0.0, 0.95, 0.0],
+    "bladderNeckY": 0.18,
+    "urethraEntryY": -1.05,
+    "urethraEntryZ": 0.15,
+    "catheterTipRestingY": 0.88,
+    "murphyEyesOffsetY": -0.14,
+    "balloonCenterOffsetY": -0.44,
+    "shaftRadius": 0.062,
+    "balloonMinRadius": 0.068,
+    "balloonMaxRadius": 0.295,
+    "yJunctionPos": [0.0, -1.42, 0.15],
+    "valveSidePos": [0.42, -1.30, 0.15],
+    "drainageBagPos": [-0.36, -2.42, 0.12]
+  },
+  "beats": [
+    {
+      "id": "beat_1_overview",
+      "chapter": "01 • DEVICE OVERVIEW",
+      "start": 0.0,
+      "end": 5.0,
+      "shot": "studio_hero_overview",
+      "summary": "Full sleek 2-way silicone Foley catheter displayed in sterile clinical space with Drainage Eyes, Silicone Shaft, and Y-Junction Valves."
+    },
+    {
+      "id": "beat_2_dual_lumen",
+      "chapter": "02 • DUAL-LUMEN ARCHITECTURE",
+      "start": 5.0,
+      "end": 10.2,
+      "shot": "macro_lumen_cutaway",
+      "summary": "Longitudinal shaft cross-section opens cleanly exposing two independent parallel lumens: central Drainage Channel and blue Inflation Channel."
+    },
+    {
+      "id": "beat_3_insertion",
+      "chapter": "03 • ATRAUMATIC INSERTION",
+      "start": 10.2,
+      "end": 15.2,
+      "shot": "anatomical_insertion_glide",
+      "summary": "Translucent pelvic bladder & urethral cutaway fades in; lubricated catheter tip glides upward past the bladder neck until Murphy eyes sit inside cavity."
+    },
+    {
+      "id": "beat_4_balloon_lock",
+      "chapter": "04 • RETENTION BALLOON LOCK",
+      "start": 15.2,
+      "end": 20.8,
+      "shot": "balloon_inflation_lock",
+      "summary": "Syringe depresses injecting 10 mL cyan sterile water via check valve, expanding the retention balloon above the bladder neck to prevent slip."
+    },
+    {
+      "id": "beat_5_gravity_drainage",
+      "chapter": "05 • CLOSED GRAVITY DRAINAGE",
+      "start": 20.8,
+      "end": 26.2,
+      "shot": "gravity_drainage_flow",
+      "summary": "Amber fluid droplets enter both Murphy eyes, cascade through central shaft cutaway, and fill the closed graduated collection bag below."
+    },
+    {
+      "id": "beat_6_deflation_recap",
+      "chapter": "06 • DEFLATION & SAFE REMOVAL",
+      "start": 26.2,
+      "end": 30.0,
+      "shot": "deflation_removal_summary",
+      "summary": "Syringe withdraws sterile water back to 0 mL; balloon collapses flush against shaft and catheter slides gently down out of bladder."
+    }
+  ],
+  "dialogue": [
+    {
+      "id": "line_01",
+      "beatId": "beat_1_overview",
+      "speaker": "narrator",
+      "start": 0.25,
+      "end": 4.90,
+      "text": "A Foley catheter is a dual-channel tube for continuous bladder drainage."
+    },
+    {
+      "id": "line_02",
+      "beatId": "beat_2_dual_lumen",
+      "speaker": "narrator",
+      "start": 5.15,
+      "end": 10.05,
+      "text": "Inside its soft silicone shaft, two separate channels work independently side by side."
+    },
+    {
+      "id": "line_03",
+      "beatId": "beat_3_insertion",
+      "speaker": "narrator",
+      "start": 10.35,
+      "end": 15.05,
+      "text": "During placement, the rounded tip glides smoothly until its top eyes enter the bladder."
+    },
+    {
+      "id": "line_04",
+      "beatId": "beat_4_balloon_lock",
+      "speaker": "narrator",
+      "start": 15.35,
+      "end": 20.60,
+      "text": "Ten milliliters of sterile water inflate a tiny balloon at the neck, gently anchoring it."
+    },
+    {
+      "id": "line_05",
+      "beatId": "beat_5_gravity_drainage",
+      "speaker": "narrator",
+      "start": 20.95,
+      "end": 25.95,
+      "text": "Gravity drains urine through the top ports into a closed sterile bag without backflow."
+    },
+    {
+      "id": "line_06",
+      "beatId": "beat_6_deflation_recap",
+      "speaker": "narrator",
+      "start": 26.20,
+      "end": 29.85,
+      "text": "Deflating the valve collapses the balloon for smooth removal."
+    }
+  ],
+  "sfxEvents": [
+    { "id": "sfx_01", "time": 0.15, "type": "sterile_chime", "gain": 0.55, "pan": 0.0 },
+    { "id": "sfx_02", "time": 5.05, "type": "section_slice", "gain": 0.58, "pan": 0.0 },
+    { "id": "sfx_03", "time": 7.60, "type": "pulse_scan", "gain": 0.45, "pan": 0.12 },
+    { "id": "sfx_04", "time": 10.30, "type": "soft_glide", "gain": 0.52, "pan": 0.0 },
+    { "id": "sfx_05", "time": 14.40, "type": "seat_chime", "gain": 0.50, "pan": 0.0 },
+    { "id": "sfx_06", "time": 15.35, "type": "valve_click", "gain": 0.65, "pan": 0.2 },
+    { "id": "sfx_07", "time": 16.00, "type": "fluid_inflate", "gain": 0.68, "pan": 0.0 },
+    { "id": "sfx_08", "time": 19.40, "type": "valve_lock", "gain": 0.62, "pan": 0.2 },
+    { "id": "sfx_09", "time": 21.05, "type": "gravity_flow", "gain": 0.60, "pan": -0.1 },
+    { "id": "sfx_10", "time": 24.00, "type": "drip_echo", "gain": 0.48, "pan": -0.15 },
+    { "id": "sfx_11", "time": 26.25, "type": "valve_release", "gain": 0.60, "pan": 0.2 },
+    { "id": "sfx_12", "time": 28.80, "type": "outro_chime", "gain": 0.58, "pan": 0.0 }
+  ]
+}

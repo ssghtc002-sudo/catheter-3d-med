@@ -1,0 +1,23 @@
+1
+00:00:00,275 --> 00:00:04,646
+A Foley catheter is a dual-channel tube for continuous bladder drainage.
+
+2
+00:00:05,175 --> 00:00:09,781
+Inside its soft silicone shaft, two separate channels work independently side by side.
+
+3
+00:00:10,375 --> 00:00:14,793
+During placement, the rounded tip glides smoothly until its top eyes enter the bladder.
+
+4
+00:00:15,375 --> 00:00:20,310
+Ten milliliters of sterile water inflate a tiny balloon at the neck, gently anchoring it.
+
+5
+00:00:20,975 --> 00:00:25,675
+Gravity drains urine through the top ports into a closed sterile bag without backflow.
+
+6
+00:00:26,225 --> 00:00:29,656
+Deflating the valve collapses the balloon for smooth removal.
